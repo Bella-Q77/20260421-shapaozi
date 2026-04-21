@@ -1,12 +1,24 @@
 from typing import List, Dict, Optional
 from models import Question, QuestionCategory
 import uuid
+import re
 
 
 class QuestionGenerator:
     def __init__(self):
         self.question_counter = 0
         self._init_question_templates()
+        self._init_entity_patterns()
+    
+    def _init_entity_patterns(self):
+        self.person_titles = [
+            "总", "经理", "总监", "老板", "老师", "教授", "医生", "护士",
+            "工程师", "设计师", "会计", "律师", "警察", "消防员", "司机",
+            "同学", "同事", "朋友", "家人", "亲戚", "领导", "下属", "员工"
+        ]
+        
+        self.person_prefixes = ["老", "小", "大"]
+        self.conjunctions = ["和", "与", "及", "跟", "、", "，", ",", "；", ";", "还有"]
     
     def _init_question_templates(self):
         self.level1_templates = {
@@ -27,28 +39,33 @@ class QuestionGenerator:
             ]
         }
         
-        self.person_followup_templates = [
-            "这个人是谁？",
-            "这个人的身份是什么？",
-            "这个人有什么特点？",
-            "这个人来自哪里？",
-            "这个人多大年纪？"
+        self.person_detail_questions = [
+            "{entity}是谁？",
+            "{entity}的身份是什么？",
+            "{entity}有什么特点？",
+            "{entity}来自哪里？",
+            "{entity}多大年纪？",
+            "{entity}的职位是什么？",
+            "{entity}负责什么工作？"
         ]
         
-        self.object_followup_templates = [
-            "这个事物具体是什么？",
-            "这个事物有什么特点？",
-            "这个事物来自哪里？",
-            "这个事物的用途是什么？",
-            "这个事物的数量有多少？"
+        self.object_detail_questions = [
+            "{entity}具体是什么？",
+            "{entity}有什么特点？",
+            "{entity}来自哪里？",
+            "{entity}的用途是什么？",
+            "{entity}的数量有多少？",
+            "{entity}的价格是多少？",
+            "{entity}是谁提供的？"
         ]
         
-        self.event_followup_templates = [
-            "这个时间具体是几点？",
-            "这个地点具体在哪里？",
-            "这个事件持续了多久？",
-            "这个事件是如何发生的？",
-            "这个事件的结果是什么？"
+        self.event_detail_questions = [
+            "{entity}的具体时间是？",
+            "{entity}的具体地点是？",
+            "{entity}持续了多久？",
+            "{entity}是如何发生的？",
+            "{entity}的结果是什么？",
+            "{entity}有什么影响？"
         ]
         
         self.smart_keywords = {
@@ -94,6 +111,44 @@ class QuestionGenerator:
             }
         }
     
+    def _extract_person_entities(self, text: str) -> List[str]:
+        entities = []
+        
+        for conj in self.conjunctions:
+            text = text.replace(conj, "|")
+        
+        parts = re.split(r'[|、，,；;\s]+', text)
+        parts = [p.strip() for p in parts if p.strip()]
+        
+        for part in parts:
+            if len(part) >= 1:
+                for title in self.person_titles:
+                    if title in part and len(part) > len(title):
+                        entities.append(part)
+                        break
+                else:
+                    if len(part) >= 2 or (len(part) == 1 and part[0] in self.person_prefixes):
+                        entities.append(part)
+        
+        entities = [e for e in entities if len(e) >= 1]
+        
+        return entities if entities else [text.strip()]
+    
+    def _extract_object_entities(self, text: str) -> List[str]:
+        entities = []
+        
+        for conj in self.conjunctions:
+            text = text.replace(conj, "|")
+        
+        parts = re.split(r'[|、，,；;\s]+', text)
+        parts = [p.strip() for p in parts if p.strip()]
+        
+        for part in parts:
+            if len(part) >= 1:
+                entities.append(part)
+        
+        return entities if entities else [text.strip()]
+    
     def _generate_question_id(self) -> str:
         self.question_counter += 1
         return f"q_{self.question_counter}_{uuid.uuid4().hex[:8]}"
@@ -136,44 +191,68 @@ class QuestionGenerator:
     def generate_level2_questions(self, parent_answer_id: str, answer_text: str, parent_category: QuestionCategory) -> List[Question]:
         questions = []
         
-        if parent_category == QuestionCategory.PERSON:
-            templates = self.person_followup_templates
-        elif parent_category == QuestionCategory.OBJECT:
-            templates = self.object_followup_templates
-        else:
-            templates = self.event_followup_templates
+        if not answer_text or not answer_text.strip():
+            return questions
         
-        for i, q_text in enumerate(templates[:3]):
-            if i == 0:
-                category = QuestionCategory.PERSON
-            elif i == 1:
-                category = QuestionCategory.OBJECT
-            else:
-                category = QuestionCategory.EVENT
+        if parent_category == QuestionCategory.PERSON:
+            entities = self._extract_person_entities(answer_text)
+            templates = self.person_detail_questions
+        elif parent_category == QuestionCategory.OBJECT:
+            entities = self._extract_object_entities(answer_text)
+            templates = self.object_detail_questions
+        else:
+            entities = [answer_text.strip()]
+            templates = self.event_detail_questions
+        
+        for entity in entities:
+            if not entity or not entity.strip():
+                continue
             
-            question = Question(
-                id=self._generate_question_id(),
-                text=q_text,
-                category=category,
-                level=2,
-                parent_answer_id=parent_answer_id
-            )
-            questions.append(question)
+            entity = entity.strip()
+            
+            questions_for_entity = []
+            for template in templates:
+                q_text = template.replace("{entity}", entity)
+                questions_for_entity.append(q_text)
+            
+            selected_questions = questions_for_entity[:3]
+            
+            for i, q_text in enumerate(selected_questions):
+                if i == 0:
+                    category = QuestionCategory.PERSON
+                elif i == 1:
+                    category = QuestionCategory.OBJECT
+                else:
+                    category = QuestionCategory.EVENT
+                
+                question = Question(
+                    id=self._generate_question_id(),
+                    text=q_text,
+                    category=category,
+                    level=2,
+                    parent_answer_id=parent_answer_id
+                )
+                questions.append(question)
         
         return questions
     
     def generate_level3_questions(self, parent_answer_id: str, answer_text: str, parent_category: QuestionCategory) -> List[Question]:
         questions = []
         
+        if not answer_text or not answer_text.strip():
+            return questions
+        
+        answer_text = answer_text.strip()
+        
         followup_templates = {
             QuestionCategory.PERSON: [
-                f"关于'{answer_text}'，还有什么需要补充的？",
-                f"'{answer_text}'的详细情况是什么？",
-                f"'{answer_text}'有什么特别之处？"
+                f"关于'{answer_text}'，还有什么需要补充的信息？",
+                f"'{answer_text}'的详细背景是什么？",
+                f"'{answer_text}'与这个事件有什么关系？"
             ],
             QuestionCategory.OBJECT: [
                 f"'{answer_text}'的具体情况是什么？",
-                f"'{answer_text}'有什么特点？",
+                f"'{answer_text}'有什么特别之处？",
                 f"关于'{answer_text}'还有什么信息？"
             ],
             QuestionCategory.EVENT: [
