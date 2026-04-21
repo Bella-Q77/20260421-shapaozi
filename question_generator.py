@@ -51,23 +51,23 @@ class QuestionGenerator:
         }
         
         self.person_detail_questions = [
-            "{entity}是谁？",
             "{entity}的身份是什么？",
-            "{entity}有什么特点？",
+            "{entity}负责什么工作？",
             "{entity}来自哪里？",
             "{entity}多大年纪？",
-            "{entity}的职位是什么？",
-            "{entity}负责什么工作？"
+            "{entity}有什么特点？",
+            "{entity}的上级是谁？",
+            "{entity}管理多少人？"
         ]
         
         self.object_detail_questions = [
-            "{entity}具体是什么？",
-            "{entity}有什么特点？",
-            "{entity}来自哪里？",
             "{entity}的用途是什么？",
+            "{entity}来自哪里？",
             "{entity}的数量有多少？",
             "{entity}的价格是多少？",
-            "{entity}是谁提供的？"
+            "{entity}是谁提供的？",
+            "{entity}有什么特点？",
+            "{entity}的质量如何？"
         ]
         
         self.event_detail_questions = [
