@@ -370,7 +370,8 @@ class MainWindow(QMainWindow):
                     answer_id=answer.id,
                     answer_text=answer_text,
                     parent_category=question.category,
-                    current_level=question.level
+                    current_level=question.level,
+                    parent_question_text=question.text
                 )
                 
                 if child_questions:

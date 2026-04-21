@@ -23,12 +23,36 @@ class QuestionGenerator:
         self.person_prefixes = ["老", "小", "大"]
         self.conjunctions = ["和", "与", "及", "跟", "、", "，", ",", "；", ";", "还有"]
         
+        self.chinese_provinces = [
+            "北京", "上海", "天津", "重庆", "河北", "山西", "辽宁", "吉林", "黑龙江",
+            "江苏", "浙江", "安徽", "福建", "江西", "山东", "河南", "湖北", "湖南",
+            "广东", "广西", "海南", "四川", "贵州", "云南", "陕西", "甘肃", "青海",
+            "台湾", "内蒙古", "新疆", "西藏", "宁夏", "广西", "香港", "澳门"
+        ]
+        
+        self.chinese_cities = [
+            "北京", "上海", "广州", "深圳", "杭州", "南京", "苏州", "成都", "武汉",
+            "西安", "重庆", "天津", "郑州", "长沙", "东莞", "宁波", "佛山", "合肥",
+            "青岛", "大连", "厦门", "福州", "济南", "昆明", "哈尔滨", "沈阳", "长春",
+            "石家庄", "太原", "兰州", "贵阳", "南宁", "海口", "乌鲁木齐", "呼和浩特",
+            "拉萨", "银川", "西宁"
+        ]
+        
         self.object_types = {
             "课程": ["课程", "课", "学科", "科目"],
             "书籍": ["书", "课本", "教材", "讲义", "教程"],
             "会议": ["会议", "会", "研讨会", "座谈会", "培训会"],
             "地点": ["教室", "办公室", "会议室", "餐厅", "酒店", "商场", "学校", "公司"],
             "时间": ["早上", "上午", "下午", "晚上", "今天", "明天", "昨天", "上周", "下周"]
+        }
+        
+        self.question_type_patterns = {
+            "地点": ["来自哪里", "在哪里", "哪个地方", "地点", "哪里人", "家乡", "籍贯"],
+            "时间": ["什么时候", "时间", "几点", "日期", "星期"],
+            "年龄": ["多大年纪", "年龄", "几岁", "多大"],
+            "身份": ["身份", "是谁", "什么职位", "职位"],
+            "工作": ["负责什么", "工作", "做什么"],
+            "数量": ["多少", "几个", "人数"]
         }
     
     def _init_question_templates(self):
@@ -247,7 +271,7 @@ class QuestionGenerator:
         
         return questions
     
-    def generate_level3_questions(self, parent_answer_id: str, answer_text: str, parent_category: QuestionCategory) -> List[Question]:
+    def generate_level3_questions(self, parent_answer_id: str, answer_text: str, parent_category: QuestionCategory, parent_question_text: str = "") -> List[Question]:
         questions = []
         
         if not answer_text or not answer_text.strip():
@@ -255,12 +279,23 @@ class QuestionGenerator:
         
         answer_text = answer_text.strip()
         
+        is_place = False
+        is_time = False
+        is_position = False
+        is_course = False
+        is_book = False
+        is_age = False
+        
+        if any(province in answer_text for province in self.chinese_provinces):
+            is_place = True
+        elif any(city in answer_text for city in self.chinese_cities):
+            is_place = True
+        
         position_keywords = [
             "主管", "经理", "总监", "主任", "部长", "处长", "局长", "厅长",
             "总裁", "CEO", "COO", "CTO", "CFO", "领导", "老板", "创始人",
             "合伙人", "投资者", "股东", "董事", "监事", "书记", "主席"
         ]
-        
         is_position = any(keyword in answer_text for keyword in position_keywords)
         
         course_keywords = ["课程", "课", "学科", "科目", "教程"]
@@ -270,12 +305,54 @@ class QuestionGenerator:
         is_book = any(keyword in answer_text for keyword in book_keywords)
         
         place_keywords = ["教室", "办公室", "会议室", "餐厅", "酒店", "商场", "学校", "公司", "地点"]
-        is_place = any(keyword in answer_text for keyword in place_keywords)
+        if any(keyword in answer_text for keyword in place_keywords):
+            is_place = True
         
         time_keywords = ["早上", "上午", "下午", "晚上", "今天", "明天", "昨天", "上周", "下周", "时间"]
         is_time = any(keyword in answer_text for keyword in time_keywords)
         
-        if parent_category == QuestionCategory.PERSON:
+        age_patterns = ["岁", "年龄", "多大"]
+        is_age = any(pattern in answer_text for pattern in age_patterns) or answer_text.isdigit()
+        
+        if parent_question_text:
+            for q_type, patterns in self.question_type_patterns.items():
+                for pattern in patterns:
+                    if pattern in parent_question_text:
+                        if q_type == "地点":
+                            is_place = True
+                        elif q_type == "时间":
+                            is_time = True
+                        elif q_type == "年龄":
+                            is_age = True
+                        break
+        
+        templates = []
+        
+        if is_place:
+            templates = [
+                f"'{answer_text}'的具体位置是哪里？",
+                f"'{answer_text}'有什么特点？",
+                f"'{answer_text}'属于哪个省份或城市？",
+                f"'{answer_text}'的气候如何？",
+                f"'{answer_text}'有什么著名景点？"
+            ]
+        elif is_time:
+            templates = [
+                f"'{answer_text}'具体是几点？",
+                f"'{answer_text}'是哪个日期？",
+                f"'{answer_text}'是星期几？",
+                f"'{answer_text}'持续了多久？",
+                f"'{answer_text}'之后还有什么安排？"
+            ]
+        elif is_age:
+            templates = [
+                f"'{answer_text}'是实岁还是虚岁？",
+                f"'{answer_text}'的属相是什么？",
+                f"'{answer_text}'的星座是什么？",
+                f"'{answer_text}'的出生年份是？",
+                f"'{answer_text}'的生日是哪天？"
+            ]
+        elif parent_category == QuestionCategory.PERSON:
             if is_position:
                 templates = [
                     f"'{answer_text}'具体负责什么业务？",
@@ -289,8 +366,8 @@ class QuestionGenerator:
                     f"'{answer_text}'的具体职责是什么？",
                     f"'{answer_text}'与这个事件有什么关系？",
                     f"'{answer_text}'的背景是什么？",
-                    f"'{answer_text}'来自哪里？",
-                    f"'{answer_text}'有什么特点？"
+                    f"'{answer_text}'有什么特点？",
+                    f"'{answer_text}'的联系方式是什么？"
                 ]
         
         elif parent_category == QuestionCategory.OBJECT:
@@ -310,14 +387,6 @@ class QuestionGenerator:
                     f"'{answer_text}'出版于哪一年？",
                     f"'{answer_text}'有多少页？"
                 ]
-            elif is_place:
-                templates = [
-                    f"'{answer_text}'的具体位置在哪里？",
-                    f"'{answer_text}'能容纳多少人？",
-                    f"'{answer_text}'的设施如何？",
-                    f"'{answer_text}'是谁负责的？",
-                    f"'{answer_text}'的环境如何？"
-                ]
             else:
                 templates = [
                     f"'{answer_text}'的具体用途是什么？",
@@ -328,30 +397,13 @@ class QuestionGenerator:
                 ]
         
         else:
-            if is_time:
-                templates = [
-                    f"'{answer_text}'具体是几点？",
-                    f"'{answer_text}'持续了多久？",
-                    f"'{answer_text}'是哪个日期？",
-                    f"'{answer_text}'是星期几？",
-                    f"'{answer_text}'之后还有什么安排？"
-                ]
-            elif is_place:
-                templates = [
-                    f"'{answer_text}'的具体位置在哪里？",
-                    f"'{answer_text}'的环境如何？",
-                    f"'{answer_text}'的交通是否方便？",
-                    f"'{answer_text}'附近有什么设施？",
-                    f"'{answer_text}'是谁负责的？"
-                ]
-            else:
-                templates = [
-                    f"'{answer_text}'的具体时间是？",
-                    f"'{answer_text}'的具体地点是？",
-                    f"'{answer_text}'的参与者还有谁？",
-                    f"'{answer_text}'是如何发生的？",
-                    f"'{answer_text}'的结果是什么？"
-                ]
+            templates = [
+                f"'{answer_text}'的具体情况是什么？",
+                f"'{answer_text}'有什么特别之处？",
+                f"'{answer_text}'与其他相关事物有什么关系？",
+                f"'{answer_text}'的背景是什么？",
+                f"'{answer_text}'有什么影响？"
+            ]
         
         for i, q_text in enumerate(templates[:3]):
             if i == 0:
@@ -372,10 +424,10 @@ class QuestionGenerator:
         
         return questions
     
-    def generate_questions_for_answer(self, answer_id: str, answer_text: str, parent_category: QuestionCategory, current_level: int) -> List[Question]:
+    def generate_questions_for_answer(self, answer_id: str, answer_text: str, parent_category: QuestionCategory, current_level: int, parent_question_text: str = "") -> List[Question]:
         if current_level == 1:
             return self.generate_level2_questions(answer_id, answer_text, parent_category)
         elif current_level == 2:
-            return self.generate_level3_questions(answer_id, answer_text, parent_category)
+            return self.generate_level3_questions(answer_id, answer_text, parent_category, parent_question_text)
         else:
             return []
