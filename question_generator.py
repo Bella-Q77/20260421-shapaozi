@@ -14,11 +14,22 @@ class QuestionGenerator:
         self.person_titles = [
             "总", "经理", "总监", "老板", "老师", "教授", "医生", "护士",
             "工程师", "设计师", "会计", "律师", "警察", "消防员", "司机",
-            "同学", "同事", "朋友", "家人", "亲戚", "领导", "下属", "员工"
+            "同学", "同事", "朋友", "家人", "亲戚", "领导", "下属", "员工",
+            "主管", "主任", "部长", "处长", "局长", "厅长", "部长", "主席",
+            "书记", "委员", "代表", "董事", "监事", "总裁", "CEO", "COO",
+            "CTO", "CFO", "CIO", "创始人", "合伙人", "投资者", "股东"
         ]
         
         self.person_prefixes = ["老", "小", "大"]
         self.conjunctions = ["和", "与", "及", "跟", "、", "，", ",", "；", ";", "还有"]
+        
+        self.object_types = {
+            "课程": ["课程", "课", "学科", "科目"],
+            "书籍": ["书", "课本", "教材", "讲义", "教程"],
+            "会议": ["会议", "会", "研讨会", "座谈会", "培训会"],
+            "地点": ["教室", "办公室", "会议室", "餐厅", "酒店", "商场", "学校", "公司"],
+            "时间": ["早上", "上午", "下午", "晚上", "今天", "明天", "昨天", "上周", "下周"]
+        }
     
     def _init_question_templates(self):
         self.level1_templates = {
@@ -244,25 +255,103 @@ class QuestionGenerator:
         
         answer_text = answer_text.strip()
         
-        followup_templates = {
-            QuestionCategory.PERSON: [
-                f"关于'{answer_text}'，还有什么需要补充的信息？",
-                f"'{answer_text}'的详细背景是什么？",
-                f"'{answer_text}'与这个事件有什么关系？"
-            ],
-            QuestionCategory.OBJECT: [
-                f"'{answer_text}'的具体情况是什么？",
-                f"'{answer_text}'有什么特别之处？",
-                f"关于'{answer_text}'还有什么信息？"
-            ],
-            QuestionCategory.EVENT: [
-                f"'{answer_text}'的具体时间是？",
-                f"'{answer_text}'的具体地点是？",
-                f"关于'{answer_text}'还有什么细节？"
-            ]
-        }
+        position_keywords = [
+            "主管", "经理", "总监", "主任", "部长", "处长", "局长", "厅长",
+            "总裁", "CEO", "COO", "CTO", "CFO", "领导", "老板", "创始人",
+            "合伙人", "投资者", "股东", "董事", "监事", "书记", "主席"
+        ]
         
-        templates = followup_templates.get(parent_category, followup_templates[QuestionCategory.EVENT])
+        is_position = any(keyword in answer_text for keyword in position_keywords)
+        
+        course_keywords = ["课程", "课", "学科", "科目", "教程"]
+        is_course = any(keyword in answer_text for keyword in course_keywords)
+        
+        book_keywords = ["书", "课本", "教材", "讲义", "教程", "著作"]
+        is_book = any(keyword in answer_text for keyword in book_keywords)
+        
+        place_keywords = ["教室", "办公室", "会议室", "餐厅", "酒店", "商场", "学校", "公司", "地点"]
+        is_place = any(keyword in answer_text for keyword in place_keywords)
+        
+        time_keywords = ["早上", "上午", "下午", "晚上", "今天", "明天", "昨天", "上周", "下周", "时间"]
+        is_time = any(keyword in answer_text for keyword in time_keywords)
+        
+        if parent_category == QuestionCategory.PERSON:
+            if is_position:
+                templates = [
+                    f"'{answer_text}'具体负责什么业务？",
+                    f"'{answer_text}'的上级是谁？",
+                    f"'{answer_text}'管理多少人？",
+                    f"'{answer_text}'的日常工作是什么？",
+                    f"'{answer_text}'在哪个部门工作？"
+                ]
+            else:
+                templates = [
+                    f"'{answer_text}'的具体职责是什么？",
+                    f"'{answer_text}'与这个事件有什么关系？",
+                    f"'{answer_text}'的背景是什么？",
+                    f"'{answer_text}'来自哪里？",
+                    f"'{answer_text}'有什么特点？"
+                ]
+        
+        elif parent_category == QuestionCategory.OBJECT:
+            if is_course:
+                templates = [
+                    f"'{answer_text}'的主要内容是什么？",
+                    f"'{answer_text}'是谁教授的？",
+                    f"'{answer_text}'在哪个教室上课？",
+                    f"'{answer_text}'每周上几次？",
+                    f"'{answer_text}'使用什么教材？"
+                ]
+            elif is_book:
+                templates = [
+                    f"'{answer_text}'的主要内容是什么？",
+                    f"'{answer_text}'是谁编写的？",
+                    f"'{answer_text}'是哪个出版社出版的？",
+                    f"'{answer_text}'出版于哪一年？",
+                    f"'{answer_text}'有多少页？"
+                ]
+            elif is_place:
+                templates = [
+                    f"'{answer_text}'的具体位置在哪里？",
+                    f"'{answer_text}'能容纳多少人？",
+                    f"'{answer_text}'的设施如何？",
+                    f"'{answer_text}'是谁负责的？",
+                    f"'{answer_text}'的环境如何？"
+                ]
+            else:
+                templates = [
+                    f"'{answer_text}'的具体用途是什么？",
+                    f"'{answer_text}'的数量有多少？",
+                    f"'{answer_text}'的价值是多少？",
+                    f"'{answer_text}'来自哪里？",
+                    f"'{answer_text}'是谁提供的？"
+                ]
+        
+        else:
+            if is_time:
+                templates = [
+                    f"'{answer_text}'具体是几点？",
+                    f"'{answer_text}'持续了多久？",
+                    f"'{answer_text}'是哪个日期？",
+                    f"'{answer_text}'是星期几？",
+                    f"'{answer_text}'之后还有什么安排？"
+                ]
+            elif is_place:
+                templates = [
+                    f"'{answer_text}'的具体位置在哪里？",
+                    f"'{answer_text}'的环境如何？",
+                    f"'{answer_text}'的交通是否方便？",
+                    f"'{answer_text}'附近有什么设施？",
+                    f"'{answer_text}'是谁负责的？"
+                ]
+            else:
+                templates = [
+                    f"'{answer_text}'的具体时间是？",
+                    f"'{answer_text}'的具体地点是？",
+                    f"'{answer_text}'的参与者还有谁？",
+                    f"'{answer_text}'是如何发生的？",
+                    f"'{answer_text}'的结果是什么？"
+                ]
         
         for i, q_text in enumerate(templates[:3]):
             if i == 0:
